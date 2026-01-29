@@ -1,0 +1,1 @@
+select node_id, sensorid from dtSensors

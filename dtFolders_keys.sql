@@ -1,0 +1,1 @@
+select folder_id, folder_template, userid, delivered_date from dtFolders

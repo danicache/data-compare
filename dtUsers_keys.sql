@@ -1,0 +1,1 @@
+SELECT userid FROM dtUsers
