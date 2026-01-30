@@ -3,27 +3,63 @@ package main
 import (
 	"database/sql"
 	"os"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
-func init() {
-	// format the output for console
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-}
+var tableKey string
 
 func main() {
 
-	// setup log file and console out
-	// logFile, err := os.Create("compare.log")
-	// if err != nil {
-	// 	log.Fatal().Err(err).Msg("can not create log file")
-	// }
-	// defer logFile.Close()
+	// parse arguments and key
+	// read in exactly 2 arguments
+	if len(os.Args) < 3 {
+		log.Fatal().Msg("need 2 arguments")
+	}
+	file1 := os.Args[1]
+	file2 := os.Args[2]
 
-	// log.SetOutput(io.MultiWriter(os.Stdout, logFile))
+	tableKey = strings.Split(file1, "_")[0]
+
+	// ------------------
+	// setup the log file
+	// ------------------
+
+	// 1. Open the log file for writing, replaced every time the comparison happens
+	logFile, err := os.OpenFile(
+		tableKey+".log",
+		os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
+		0644,
+	)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to open log file")
+	}
+	defer logFile.Close() // Ensure the file is closed when the program exits
+
+	log.Info().Str("file", tableKey+".log").Msg("Log file created")
+
+	// 2. Create a console writer for pretty output in the terminal
+	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout}
+
+	// Output to file without colors (NoColor: true)
+	fileWriter := zerolog.ConsoleWriter{Out: logFile, NoColor: true, TimeFormat: "2006-01-02 15:04:05"}
+
+	// 3. Combine the console writer and the file writer using io.MultiWriter or zerolog.MultiLevelWriter
+	// zerolog.MultiLevelWriter is recommended to handle log levels correctly for each writer
+	multiWriter := zerolog.MultiLevelWriter(consoleWriter, fileWriter)
+
+	// 4. Create a new logger with the multi-writer
+	logger := zerolog.New(multiWriter).With().Timestamp().Logger()
+
+	// 5. Optionally, set this new logger as the global logger
+	log.Logger = logger
+
+	// -------------------
+	// create the database
+	// -------------------
 
 	logSection("SETUP...")
 
@@ -37,23 +73,21 @@ func main() {
 
 	log.Debug().Str("filename", "compare.db").Msg("created SQLLite database file")
 
-	// read in 2 arguments
-	if len(os.Args) < 3 {
-		log.Fatal().Msg("need 2 arguments")
-	}
-	file1 := os.Args[1]
-	file2 := os.Args[2]
+	// ------------------------------------
+	// load the data from files into the db
+	// ------------------------------------
 
 	logSection("LOADING DATA...")
 
 	// Step 1: Load file1.txt into the database
 	table1Name := loadData(db, file1)
 
-	// step 1.1 load second file into a tablename2 table
+	// step 2 load second file into a tableName2 table
 	table2Name := loadData(db, file2)
 
-	// Step 2: Compare file2.txt with the database
-	//compareData(db, file2)
+	// ----------------------
+	// execute the comparison
+	// ----------------------
 
 	logSection("COMPARING DATA...")
 
@@ -63,76 +97,10 @@ func main() {
 	// compare 2 to 1
 	compareTables(db, table2Name, table1Name)
 
+	// DONE
+	log.Info().Msg("DONE")
+
 }
-
-// old compare, no longer used
-// func compareData(db *sql.DB, filename string) {
-
-// 	file, err := os.Open(filename)
-// 	if err != nil {
-// 		log.Fatal().Err(err).Msg("can not open file")
-// 	}
-// 	defer file.Close()
-
-// 	reader := csv.NewReader(file)
-// 	reader.Comma = '~'
-// 	records, err := reader.ReadAll()
-// 	if err != nil {
-// 		log.Fatal().Err(err).Msg("can not read file")
-// 	}
-
-// 	if len(records) == 0 {
-// 		return
-// 	}
-
-// 	header := records[0]
-// 	tableName := "data"
-// 	diffRowCount := 0
-
-// 	for _, record := range records[1:] {
-// 		id := record[0]
-// 		query := fmt.Sprintf("SELECT * FROM %s WHERE %s = ?", tableName, header[0])
-// 		row := db.QueryRow(query, id)
-
-// 		// Prepare to scan into a slice of sql.NullString
-// 		dbRecords := make([]sql.NullString, len(record))
-// 		dbRecordsPtr := make([]interface{}, len(record))
-// 		for i := range dbRecords {
-// 			dbRecordsPtr[i] = &dbRecords[i]
-// 		}
-
-// 		err := row.Scan(dbRecordsPtr...)
-// 		if err == sql.ErrNoRows {
-// 			log.Printf("ID %s from %s not found in database.", id, filename)
-// 			continue
-// 		} else if err != nil {
-// 			log.Printf("Error querying for ID %s: %v", id, err)
-// 			continue
-// 		}
-
-// 		diffFound := false
-
-// 		// Compare each column
-// 		for j, fileValue := range record {
-// 			dbValue := dbRecords[j].String
-
-// 			if !valuesEqual(header[j], fileValue, dbValue) {
-// 				log.Printf("Difference for ID %s in column '%s': file has '%s', database has '%s'",
-// 					id, header[j], fileValue, dbValue)
-// 				diffFound = true
-// 			}
-// 		}
-
-// 		// count that this row has differences
-// 		if diffFound {
-// 			diffRowCount++
-// 		}
-// 	}
-
-// 	log.Info().Int("count", diffRowCount).Msg("Differences")
-
-// 	log.Info().Msg("COMPARISON COMPLETE")
-// }
 
 func logSection(title string) {
 	log.Info().Msgf("------------------------------------------------------------------")

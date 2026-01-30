@@ -13,23 +13,19 @@ import (
 // just a place to store database related functions
 
 var tableIndex int = 1
-var tableKey string
 var keysQuery string
 
 // give a tableName, create that table
-func createTable(db *sql.DB, tableName string) (string, error) {
-
-	// table names will be created as table1, table2 so store original name
-	tableKey = tableName
+func createTable(db *sql.DB, key string) (string, error) {
 
 	// add the index since we are creating table1 and a table2
-	tableName = fmt.Sprintf("%v%v", tableName, tableIndex)
+	tableName := fmt.Sprintf("%v%v", key, tableIndex)
 
 	// Read the SQL file
 	sqlFile := tableKey + ".sql"
 	sqlBytes, err := os.ReadFile(sqlFile)
 	if err != nil {
-		return "", fmt.Errorf("failed to read SQL file %s: %w", sqlFile, err)
+		return "", fmt.Errorf("failed to read required SQL file %s: %w", sqlFile, err)
 	}
 
 	//read the keys file
@@ -61,16 +57,6 @@ func createTable(db *sql.DB, tableName string) (string, error) {
 	tableIndex++
 
 	return tableName, nil
-}
-
-// the first part of the filename should be the table name (key)
-func evaluateFileAndCreateTable(db *sql.DB, filename string) (string, error) {
-
-	split := strings.Split(filename, "_")
-
-	tableKey := split[0]
-
-	return createTable(db, tableKey)
 }
 
 func loadData(db *sql.DB, filename string) string {
@@ -109,25 +95,7 @@ func loadData(db *sql.DB, filename string) string {
 		}
 	}
 
-	// Create table
-	// tableName := "data"
-	// createQuery := fmt.Sprintf("CREATE TABLE %s (%s TEXT PRIMARY KEY, %s TEXT)",
-	// 	tableName, header[0], strings.Join(header[1:], " TEXT, "))
-	// _, err = db.Exec(createQuery)
-	// if err != nil {
-	// 	// If table already exists, clear it for a fresh start
-	// 	if strings.Contains(err.Error(), "already exists") {
-	// 		log.Printf("Table %s already exists. Clearing it.", tableName)
-	// 		_, err = db.Exec(fmt.Sprintf("DELETE FROM %s", tableName))
-	// 		if err != nil {
-	// 			log.Fatal(err)
-	// 		}
-	// 	} else {
-	// 		log.Fatal(err)
-	// 	}
-	// }
-
-	tableName, err := evaluateFileAndCreateTable(db, filename)
+	tableName, err := createTable(db, tableKey)
 	if err != nil {
 		log.Fatal().Err(err).Msgf("failed to create table for %s", filename)
 	}

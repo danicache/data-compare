@@ -52,7 +52,7 @@ func compareTables(db *sql.DB, table1, table2 string) {
 		}
 
 		if len(row1) > 1 {
-			log.Error().Msgf("More than one record found in table1 for keys: %v", v)
+			log.Error().Msgf("More than one record found in %s for keys: %v", table1, v)
 			continue
 		}
 
@@ -61,17 +61,17 @@ func compareTables(db *sql.DB, table1, table2 string) {
 		row2, err := QueryToMap(db, query, values...)
 		if err != nil {
 			log.Error().Err(err).Str("query", query).
-				Msgf("Error querying table2: %v", err)
+				Msgf("Error querying %s: %v", table2, err)
 		}
 
 		if len(row2) == 0 {
-			log.Error().Msgf("No matching record found in table2 for keys: %v", v)
+			log.Error().Msgf("No matching record found in %s for keys: %v", table2, v)
 			diffRowCount++
 			continue
 		}
 
 		if len(row2) > 1 {
-			log.Error().Msgf("More than one record found in table2 for keys: %v", v)
+			log.Error().Msgf("More than one record found in %s for keys: %v", table2, v)
 			continue
 		}
 
